@@ -40,6 +40,27 @@ struct MenuBarView: View {
             
             Divider()
             
+            // Output Mode - Direct buttons (no submenu)
+            Button(action: {
+                bridgeModel.outputMode = .midi
+                Task { await bridgeModel.setOutputMode(.midi) }
+            }) {
+                HStack {
+                    Text(bridgeModel.outputMode == .midi ? "✓ 🎹 MIDI" : "   🎹 MIDI")
+                }
+            }
+            
+            Button(action: {
+                bridgeModel.outputMode = .keyboard
+                Task { await bridgeModel.setOutputMode(.keyboard) }
+            }) {
+                HStack {
+                    Text(bridgeModel.outputMode == .keyboard ? "✓ ⌨️ Keyboard" : "   ⌨️ Keyboard")
+                }
+            }
+            
+            Divider()
+            
             // System Section
             SystemSection()
         }
@@ -168,3 +189,5 @@ struct SystemSection: View {
     MenuBarView()
         .environmentObject(BridgeModel())
 }
+
+// MARK: - Output Mode Section
