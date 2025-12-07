@@ -5,7 +5,7 @@ import Foundation
 extension Bridge {
     
     /// Configuration for output mode and keyboard mappings
-    internal static var sharedConfiguration = BridgeConfiguration()
+    public static var sharedConfiguration = BridgeConfiguration()
     
     /// Keyboard event sender
     internal static var sharedKeyboardSender = KeyboardEventSender()

@@ -16,7 +16,6 @@ public struct PG_BT4Parser {
         
         if data[0] == 0xA1 {
             // LED state confirmation from device - don't convert to MIDI
-            // Just ignore these
             return nil
         }
         

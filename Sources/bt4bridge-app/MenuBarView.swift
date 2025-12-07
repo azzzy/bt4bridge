@@ -1,10 +1,12 @@
 import SwiftUI
+import AppKit
 import BT4BridgeCore
 
 @available(macOS 13.0, *)
 struct MenuBarView: View {
     
     @EnvironmentObject private var bridgeModel: BridgeModel
+    @State private var showingSettings = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -61,9 +63,22 @@ struct MenuBarView: View {
             
             Divider()
             
+            // Keyboard settings (only show in keyboard mode)
+            if bridgeModel.outputMode == .keyboard {
+                Button("Keyboard Settings...") {
+                    openKeyboardSettings()
+                }
+                
+                Divider()
+            }
+            
             // System Section
             SystemSection()
         }
+    }
+    
+    private func openKeyboardSettings() {
+        KeyboardSettingsWindowManager.shared.showSettings()
     }
 }
 
