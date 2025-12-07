@@ -19,6 +19,46 @@
       "target": "bt4bridge",
       "configuration": "release",
       "preLaunchTask": "swift: Build Release bt4bridge"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:bt4bridge}",
+      "name": "Debug pg4simulator",
+      "target": "pg4simulator",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug pg4simulator"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:bt4bridge}",
+      "name": "Release pg4simulator",
+      "target": "pg4simulator",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release pg4simulator"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:bt4bridge}",
+      "name": "Debug ledtester",
+      "target": "ledtester",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug ledtester"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:bt4bridge}",
+      "name": "Release ledtester",
+      "target": "ledtester",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release ledtester"
     }
   ]
 }

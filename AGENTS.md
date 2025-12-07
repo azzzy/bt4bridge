@@ -24,3 +24,11 @@
 - Leverage Swift concurrency (async/await, actors) for Bluetooth/MIDI operations
 - Handle CoreBluetooth delegate callbacks appropriately
 - Ensure proper resource cleanup for MIDI and Bluetooth connections
+
+## Active Technologies
+- Swift 6.2+ with strict concurrency enabled + CoreBluetooth (system framework), CoreMIDI (system framework) (001-bluetooth-midi-bridge)
+- N/A (no persistent storage required for MVP) (001-bluetooth-midi-bridge)
+- N/A (no persistent storage required) (001-bluetooth-midi-bridge)
+
+## Recent Changes
+- 001-bluetooth-midi-bridge: Added Swift 6.2+ with strict concurrency enabled + CoreBluetooth (system framework), CoreMIDI (system framework)
