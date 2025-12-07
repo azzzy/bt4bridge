@@ -2,6 +2,7 @@ import Foundation
 import CoreBluetooth
 import CoreMIDI
 import Dispatch
+import BT4BridgeCore
 
 @available(macOS 12.0, *)
 @main
@@ -34,8 +35,8 @@ struct BT4BridgeApp {
     }
     
     static func runBridge() async {
-        // Configure logger
-        await Logger.shared.setLevel(.debug)
+        // Configure logger  
+        await Logger.shared.setLevel(.trace)  // Enable TRACE to see all TX/RX
         await Logger.shared.setConsoleEnabled(true)
         
         // Create and start bridge

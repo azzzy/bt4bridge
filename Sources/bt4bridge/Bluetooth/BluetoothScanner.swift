@@ -28,11 +28,14 @@ public actor BluetoothScanner: NSObject {
     /// Currently connected PG_BT4 peripheral
     private var connectedPeripheral: CBPeripheral?
     
-    /// MIDI characteristic for receiving data (notify)
+    /// MIDI characteristic for receiving data (notify) - FFF4 for button presses
     private var midiReadCharacteristic: CBCharacteristic?
     
-    /// MIDI characteristic for sending data (write)
+    /// MIDI characteristic for sending data (write) - FFF2 for LED commands
     private var midiWriteCharacteristic: CBCharacteristic?
+    
+    /// MIDI characteristic for receiving LED confirmations (indicate) - FFF3
+    private var midiIndicateCharacteristic: CBCharacteristic?
     
     /// Connection state
     public private(set) var isConnected = false
@@ -63,6 +66,11 @@ public actor BluetoothScanner: NSObject {
     /// Connection attempt count for retry logic
     private var connectionAttempts = 0
     private let maxConnectionAttempts = 3
+    
+    /// Track which characteristics are subscribed (for waiting until ready)
+    private var fff4Subscribed = false
+    private var fff3Subscribed = false
+    private var awaitingSubscriptions = false
     
     // MARK: - Initialization
     
@@ -133,7 +141,11 @@ public actor BluetoothScanner: NSObject {
         connectedPeripheral = nil
         midiReadCharacteristic = nil
         midiWriteCharacteristic = nil
+        midiIndicateCharacteristic = nil
         connectionAttempts = 0
+        fff4Subscribed = false
+        fff3Subscribed = false
+        awaitingSubscriptions = false
     }
     
     /// Send data to the PG_BT4 device
@@ -150,8 +162,11 @@ public actor BluetoothScanner: NSObject {
         // Send raw protocol data to device
         await logTrace("TX: \(data.map { String(format: "%02X", $0) }.joined(separator: " "))", category: .bluetooth)
         
-        // Use .withResponse if the characteristic requires it, otherwise .withoutResponse
-        let writeType: CBCharacteristicWriteType = characteristic.properties.contains(.write) ? .withResponse : .withoutResponse
+        // FFF2 has .writeWithoutResponse property, but let's try .withResponse anyway
+        // Some devices need acknowledgment even if they don't advertise it
+        let writeType: CBCharacteristicWriteType = .withoutResponse
+        
+        await logTrace("Using write type: \(writeType == .withResponse ? "withResponse" : "withoutResponse")", category: .bluetooth)
         
         peripheral.writeValue(
             data,
@@ -303,7 +318,7 @@ extension BluetoothScanner: CBCentralManagerDelegate {
     private func handleConnectedPeripheral(_ peripheral: CBPeripheral) async {
         await logInfo("Connected to PG_BT4", category: .bluetooth)
         
-        isConnected = true
+        // Don't set isConnected yet - wait for characteristics to be ready
         connectionAttempts = 0
         peripheral.delegate = self
         
@@ -348,6 +363,10 @@ extension BluetoothScanner: CBCentralManagerDelegate {
         isConnected = false
         midiReadCharacteristic = nil
         midiWriteCharacteristic = nil
+        midiIndicateCharacteristic = nil
+        fff4Subscribed = false
+        fff3Subscribed = false
+        awaitingSubscriptions = false
         
         // Notify delegate
         await delegate?.bluetoothScannerDidDisconnect(self)
@@ -478,18 +497,22 @@ extension BluetoothScanner: CBPeripheralDelegate {
             await logInfo("  Characteristic UUID: \(char.uuid) Properties: \(char.properties.rawValue)", category: .bluetooth)
         }
         
-        // Find read characteristic (with notify property)
+        // Find read characteristic (with notify property) - FFF4 for button presses
         let readChar = characteristics.first(where: { $0.properties.contains(.notify) })
         
+        // Find indication characteristic (FFF3) for LED confirmations
+        let indicateChar = characteristics.first(where: { $0.uuid.uuidString == "FFF3" })
+        
         // Use FFF2 for writing (LED commands)
-        // FFF3 is for indications (responses from device), not for sending commands
         var writeChar = characteristics.first(where: { $0.uuid.uuidString == "FFF2" })
         if writeChar == nil {
             // Fallback to any write characteristic
             writeChar = characteristics.first(where: { $0.properties.contains(.write) || $0.properties.contains(.writeWithoutResponse) })
         }
         
-        await logInfo("💡 Testing LED control with characteristic: \(writeChar?.uuid.uuidString ?? "none")", category: .bluetooth)
+        await logInfo("💡 LED control setup:", category: .bluetooth)
+        await logInfo("   Write (commands): \(writeChar?.uuid.uuidString ?? "none")", category: .bluetooth)
+        await logInfo("   Indicate (confirmations): \(indicateChar?.uuid.uuidString ?? "none")", category: .bluetooth)
         
         guard let read = readChar else {
             await logError("No characteristic with notify found", category: .bluetooth)
@@ -510,19 +533,36 @@ extension BluetoothScanner: CBPeripheralDelegate {
         
         midiReadCharacteristic = read
         midiWriteCharacteristic = write
+        midiIndicateCharacteristic = indicateChar
         
-        // Subscribe to notifications
+        // Reset subscription flags
+        fff4Subscribed = false
+        fff3Subscribed = false
+        awaitingSubscriptions = true
+        
+        // Subscribe to notifications (FFF4 - button presses)
         connectedPeripheral?.setNotifyValue(true, for: read)
+        await logInfo("📥 Subscribing to button presses (FFF4)...", category: .bluetooth)
+        
+        // ALSO subscribe to indications (FFF3 - LED confirmations)
+        if let indicate = indicateChar {
+            connectedPeripheral?.setNotifyValue(true, for: indicate)
+            await logInfo("📥 Subscribing to LED confirmations (FFF3)...", category: .bluetooth)
+        } else {
+            // If no FFF3, mark it as done so we don't wait for it
+            fff3Subscribed = true
+        }
         
         characteristicContinuation?.resume(returning: true)
         characteristicContinuation = nil
         
         // Connection fully established
+        isConnected = true
         connectionContinuation?.resume(returning: true)
         connectionContinuation = nil
         
-        // Notify delegate
-        await delegate?.bluetoothScannerDidConnect(self)
+        // Wait for subscriptions to be confirmed before notifying delegate
+        // This ensures we can receive A1 confirmations when we send LED commands
     }
     
     private func handleUpdatedValue(_ characteristic: CBCharacteristic, error: Error?) async {
@@ -535,7 +575,9 @@ extension BluetoothScanner: CBPeripheralDelegate {
             return
         }
         
-        await logTrace("Received data: \(data.map { String(format: "%02X", $0) }.joined(separator: " "))", category: .bluetooth)
+        let charType = characteristic.uuid.uuidString == "FFF3" ? " [FFF3-LED]" : 
+                      characteristic.uuid.uuidString == "FFF4" ? " [FFF4-BTN]" : ""
+        await logTrace("RX\(charType): \(data.map { String(format: "%02X", $0) }.joined(separator: " "))", category: .bluetooth)
         
         // PG_BT4 sends raw protocol data (no BLE MIDI wrapping)
         await delegate?.bluetoothScanner(self, didReceiveMIDIData: data)
@@ -543,14 +585,29 @@ extension BluetoothScanner: CBPeripheralDelegate {
     
     private func handleNotificationStateUpdate(_ characteristic: CBCharacteristic, error: Error?) async {
         if let error = error {
-            await logError("Error updating notification state: \(error.localizedDescription)", category: .bluetooth)
+            await logError("Error updating notification state for \(characteristic.uuid): \(error.localizedDescription)", category: .bluetooth)
             return
         }
         
         if characteristic.isNotifying {
-            await logInfo("Notifications enabled for MIDI characteristic", category: .bluetooth)
+            await logInfo("✅ Notifications/Indications enabled for \(characteristic.uuid)", category: .bluetooth)
+            
+            // Track which characteristics are subscribed
+            if characteristic.uuid.uuidString == "FFF4" {
+                fff4Subscribed = true
+            } else if characteristic.uuid.uuidString == "FFF3" {
+                fff3Subscribed = true
+            }
+            
+            // Notify delegate only after FFF4 is ready (required for receiving A1 confirmations)
+            // FFF3 is optional, so we don't wait for it
+            if awaitingSubscriptions && fff4Subscribed {
+                awaitingSubscriptions = false
+                await logInfo("🎯 Subscriptions ready, device will be initialized", category: .bluetooth)
+                await delegate?.bluetoothScannerDidConnect(self)
+            }
         } else {
-            await logWarning("Notifications disabled for MIDI characteristic", category: .bluetooth)
+            await logWarning("⚠️  Notifications/Indications disabled for \(characteristic.uuid)", category: .bluetooth)
         }
     }
 }

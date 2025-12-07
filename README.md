@@ -6,18 +6,38 @@ A macOS bridge application that connects the PG_BT4 Bluetooth foot controller to
 
 bt4bridge acts as a transparent bridge between the PG_BT4 Bluetooth foot controller and macOS's CoreMIDI system. It automatically discovers the device, connects, and routes all button presses as MIDI Control Change messages to a virtual MIDI port that can be accessed by any CoreMIDI-compatible application.
 
+Available in two versions:
+- **Menu Bar App** (recommended): Native macOS app with menu bar interface
+- **Command-Line**: Terminal-based version for automation and headless use
+
 ## Features
 
+### Core Features (Both Versions)
 - **Automatic Discovery**: Scans for and connects to the PG_BT4 device automatically
 - **Full Button Support**: All 4 buttons mapped to MIDI CC 80-83 on channel 0
+- **LED Control**: Control all 4 LEDs via MIDI CC 16-19 from your DAW
 - **Transparent Bridging**: Routes all MIDI messages between Bluetooth and CoreMIDI
 - **Low Latency**: Optimized for real-time music performance with minimal latency
 - **Virtual MIDI Ports**: Creates "PG_BT4 Bridge" source and destination ports
 - **Automatic Reconnection**: Maintains connections and reconnects when the device becomes available
-- **Comprehensive Logging**: Detailed logging for troubleshooting and monitoring
+
+### Menu Bar App Exclusive
+- **Native macOS Interface**: Runs as a menu bar application (no Dock icon)
+- **Visual Status Indicators**: See connection status at a glance
+- **LED State Monitoring**: View current LED states without looking at the hardware
+- **Quick Actions**: Reconnect to device with one click
+- **Launch at Login**: Optionally start automatically when you log in (coming soon)
+- **Clean & Lightweight**: Minimal resource usage when idle
 
 ## Requirements
 
+### Menu Bar App
+- **macOS 13.0 (Ventura)** or later
+- Swift 6.2+ runtime
+- Bluetooth 4.0+ capable Mac
+- PG_BT4 Bluetooth foot controller
+
+### Command-Line Version
 - macOS 12.0 (Monterey) or later
 - Swift 6.2+ runtime
 - Bluetooth 4.0+ capable Mac
@@ -32,20 +52,46 @@ bt4bridge acts as a transparent bridge between the PG_BT4 Bluetooth foot control
 git clone https://github.com/yourusername/bt4bridge.git
 cd bt4bridge
 
-# Build the project
-swift build -c release
+# Build the menu bar app as an .app bundle (recommended)
+./build_app.sh
 
-# The executable will be at .build/release/bt4bridge
+# Or build the executable directly
+swift build -c release --product bt4bridge-app
+
+# Or build the command-line version
+swift build -c release --product bt4bridge
 ```
 
 ### Running
 
-```bash
-# Run directly with Swift
-swift run bt4bridge
+#### Menu Bar App (Recommended)
 
-# Or run the built executable
+```bash
+# If you built with build_app.sh, install to Applications:
+cp -r '.build/release/PG_BT4 Bridge.app' /Applications/
+
+# Then launch from Applications folder or via:
+open '/Applications/PG_BT4 Bridge.app'
+
+# Or run the executable directly (without installing):
+.build/release/bt4bridge-app
+```
+
+The app will appear in your menu bar (no window or Dock icon). Click the icon to:
+- View connection status and signal strength
+- Monitor LED states in real-time
+- Force reconnection to the device
+- Access About information
+- Quit the application
+
+#### Command-Line Version
+
+```bash
+# Run the CLI version
 .build/release/bt4bridge
+
+# Or run directly with Swift
+swift run bt4bridge
 ```
 
 ## Usage
@@ -90,22 +136,32 @@ To use in your DAW:
 ```
 bt4bridge/
 ├── Sources/
-│   └── bt4bridge/
-│       ├── bt4bridge.swift           # Main application entry point
-│       ├── Bridge.swift               # Core bridge coordinator
-│       ├── Bluetooth/
-│       │   └── BluetoothScanner.swift # BLE device discovery and connection
-│       ├── MIDI/
-│       │   ├── MIDIPortManager.swift  # Virtual MIDI port management
-│       │   └── MIDIParser.swift       # MIDI message parsing
-│       ├── Models/
-│       │   └── MIDIMessage.swift      # MIDI data structures
-│       ├── PacketAnalyzer/
-│       │   └── PG_BT4Parser.swift     # PG_BT4 protocol parser
-│       └── Utilities/
-│           └── Logger.swift           # Logging system
+│   ├── bt4bridge/                     # Core bridge library (BT4BridgeCore)
+│   │   ├── Bridge.swift               # Main bridge coordinator
+│   │   ├── Bluetooth/
+│   │   │   └── BluetoothScanner.swift # BLE device discovery
+│   │   ├── MIDI/
+│   │   │   ├── MIDIPortManager.swift  # Virtual MIDI ports
+│   │   │   └── MIDIParser.swift       # MIDI message parsing
+│   │   ├── Models/
+│   │   │   ├── LEDController.swift    # LED state management
+│   │   │   └── MIDIMessage.swift      # MIDI data structures
+│   │   ├── PacketAnalyzer/
+│   │   │   └── PG_BT4Parser.swift     # PG_BT4 protocol parser
+│   │   └── Utilities/
+│   │       └── Logger.swift           # Logging system
+│   ├── bt4bridge-app/                 # Menu bar application
+│   │   ├── BridgeApp.swift            # App entry point
+│   │   ├── BridgeModel.swift          # Observable state wrapper
+│   │   └── MenuBarView.swift          # Menu UI components
+│   ├── bt4bridge-cli/                 # Command-line application
+│   │   └── main.swift                 # CLI entry point
+│   ├── pg4simulator/                  # BLE peripheral simulator
+│   └── ledtester/                     # LED testing utility
 ├── Package.swift                      # Swift package manifest
 └── specs/                             # Project specifications
+    ├── 001-bluetooth-midi-bridge/     # Core bridge spec
+    └── 002-menu-bar-application/      # Menu bar app spec
 ```
 
 ### Building for Development
@@ -172,16 +228,21 @@ The bridge converts these to MIDI CC messages (80-83) for universal DAW compatib
 4. Check your DAW's MIDI monitor to see incoming CC messages
 5. Ensure the CC numbers (80-83) aren't filtered in your DAW
 
-### LED Behavior
+### LED Control
 
-Note: LED control from the bridge is not currently implemented. The LEDs will:
-- Turn ON when bt4bridge connects (this is normal hardware behavior)
-- Flash briefly when you press a physical button (built-in feedback)
-- Cannot be controlled via MIDI input at this time
+LED control is fully implemented! You can control the PG_BT4's 4 LEDs from your DAW:
 
-For LED control implementation status, see LED_NEXT_STEPS.md
+**MIDI CC Mapping** (send to "PG_BT4 Bridge" MIDI output):
+- **CC 16**: LED 1 control
+- **CC 17**: LED 2 control  
+- **CC 18**: LED 3 control
+- **CC 19**: LED 4 control
 
-**Want to discover the LED protocol?** Use the included `pg4simulator` tool - see SIMULATOR_GUIDE.md
+**Values**:
+- `0-63`: LED OFF
+- `64-127`: LED ON
+
+**Menu Bar App**: The LED states are also displayed in the menu, showing which LEDs are currently on/off with visual indicators (red ● for on, gray ○ for off).
 
 ### High Latency
 
@@ -191,11 +252,11 @@ For LED control implementation status, see LED_NEXT_STEPS.md
 
 ## Known Limitations
 
-1. **LED Control Not Implemented**: The PG_BT4's LEDs cannot currently be controlled from the bridge. The LEDs will turn on when connected but cannot be toggled via MIDI input. See LED_NEXT_STEPS.md for investigation details.
+1. **Single Device Support**: Currently designed for one PG_BT4 controller. Multiple device support would require extending the scanner logic.
 
-2. **Single Device Support**: Currently designed for one PG_BT4 controller. Multiple device support would require extending the scanner logic.
+2. **macOS Only**: Uses CoreBluetooth and CoreMIDI frameworks which are macOS-specific.
 
-3. **macOS Only**: Uses CoreBluetooth and CoreMIDI frameworks which are macOS-specific.
+3. **Launch at Login**: UI toggle is present in menu bar app but ServiceManagement integration is not yet complete.
 
 ## Contributing
 
@@ -221,10 +282,10 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 ## Related Documentation
 
-- **SIMULATOR_GUIDE.md**: Use the BLE peripheral simulator to discover LED protocol
-- **LED_NEXT_STEPS.md**: Investigation status and options for LED control
+- **specs/001-bluetooth-midi-bridge/**: Core bridge technical specifications
+- **specs/002-menu-bar-application/**: Menu bar app specifications and implementation notes
+- **SIMULATOR_GUIDE.md**: Use the BLE peripheral simulator for protocol testing
 - **PROTOCOL_CAPTURE_GUIDE.md**: How to analyze BLE protocols
-- **specs/001-bluetooth-midi-bridge/**: Complete technical specifications
 
 ## Support
 

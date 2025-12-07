@@ -28,11 +28,11 @@ for led in 1 2 3 4; do
     echo "━━━━━━━━━━━━━━━━━━━━━━"
     
     echo "Turning ON..."
-    $SEND_CC $cc 127
+    swift $SEND_CC $cc 127
     sleep 2
     
     echo "Turning OFF..."
-    $SEND_CC $cc 0
+    swift $SEND_CC $cc 0
     sleep 1
     echo ""
 done

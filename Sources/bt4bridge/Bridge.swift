@@ -37,12 +37,21 @@ public actor Bridge {
     public private(set) var statistics = BridgeStatistics()
     
     public struct BridgeStatistics: Sendable {
-        var startTime: Date?
-        var totalMessagesForwarded: Int = 0
-        var messagesFromPG_BT4: Int = 0
-        var messagesFromDAW: Int = 0
-        var coalescedMessages: Int = 0
-        var discoveredCCs: Set<UInt8> = []
+        public var startTime: Date?
+        public var totalMessagesForwarded: Int = 0
+        public var messagesFromPG_BT4: Int = 0
+        public var messagesFromDAW: Int = 0
+        public var coalescedMessages: Int = 0
+        public var discoveredCCs: Set<UInt8> = []
+        
+        public init(startTime: Date? = nil, totalMessagesForwarded: Int = 0, messagesFromPG_BT4: Int = 0, messagesFromDAW: Int = 0, coalescedMessages: Int = 0, discoveredCCs: Set<UInt8> = []) {
+            self.startTime = startTime
+            self.totalMessagesForwarded = totalMessagesForwarded
+            self.messagesFromPG_BT4 = messagesFromPG_BT4
+            self.messagesFromDAW = messagesFromDAW
+            self.coalescedMessages = coalescedMessages
+            self.discoveredCCs = discoveredCCs
+        }
     }
     
     // MARK: - Message Coalescing
@@ -73,7 +82,7 @@ public actor Bridge {
             // Start new coalesce window
             coalesceTask = Task {
                 try? await Task.sleep(nanoseconds: UInt64(coalesceWindow * 1_000_000_000))
-                await self.flush()
+                _ = await self.flush()
             }
             
             return nil // Message will be sent after coalescing
@@ -187,6 +196,11 @@ public actor Bridge {
         return await packetAnalyzer.getDiscoveredCCs()
     }
     
+    /// Get current LED states
+    public func getLEDStates() async -> [Int: Bool] {
+        return await ledController.getAllLEDStates()
+    }
+    
     /// Send raw test command to PG_BT4 (for LED testing)
     public func sendTestCommand(_ data: Data) async {
         do {
@@ -200,7 +214,15 @@ public actor Bridge {
     
     /// Handle MIDI message from PG_BT4
     private func handleMessageFromPG_BT4(_ data: Data) async {
-        // Parse PG_BT4 protocol
+        // Check if this is an LED confirmation packet (A1)
+        if let ledConfirmation = PG_BT4Parser.parseLEDConfirmation(data) {
+            // Update our LED state based on device confirmation
+            let _ = await ledController.setLED(ledConfirmation.led, state: ledConfirmation.isOn)
+            await logTrace("LED \(ledConfirmation.led) confirmed: \(ledConfirmation.isOn ? "ON" : "OFF")", category: .bridge)
+            return
+        }
+        
+        // Parse PG_BT4 button protocol
         guard let message = PG_BT4Parser.parse(data) else {
             let hexString = data.map { String(format: "%02X", $0) }.joined(separator: " ")
             await logWarning("Unknown packet: [\(hexString)]", category: .bridge)
@@ -263,12 +285,14 @@ public actor Bridge {
                 // This is an LED control message - send directly to device
                 let ledNum = controller - 15
                 let state = value >= 64 ? "ON" : "OFF"
-                await logDebug("LED \(ledNum) \(state)", category: .bridge)
+                let hexString = ledCommand.map { String(format: "%02X", $0) }.joined(separator: " ")
+                await logInfo("💡 LED \(ledNum) \(state) (CC\(controller)=\(value)) -> \(hexString)", category: .bridge)
                 
                 do {
                     try await bluetoothScanner.sendMIDIData(ledCommand)
+                    await logInfo("   ✅ LED command sent", category: .bridge)
                 } catch {
-                    await logError("Failed to send LED command: \(error)", category: .bridge)
+                    await logError("   ❌ Failed to send LED command: \(error)", category: .bridge)
                 }
                 return // Don't forward LED CC to device as regular MIDI
             }
@@ -298,6 +322,11 @@ extension Bridge: BluetoothScannerDelegate {
         await logInfo("PG_BT4 connected", category: .bridge)
         await setConnected(true)
         
+        // Wait for device to be fully ready after boot
+        // If device was just powered on, it needs time to initialize its Bluetooth stack
+        await logDebug("Waiting for device to be fully initialized...", category: .bridge)
+        try? await Task.sleep(nanoseconds: 500_000_000) // 500ms post-connection delay
+        
         // Initialize LEDs to OFF state
         await initializeLEDs(scanner)
         
@@ -319,7 +348,7 @@ extension Bridge: BluetoothScannerDelegate {
             do {
                 try await scanner.sendMIDIData(command)
                 // Small delay between commands
-                try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+                try? await Task.sleep(nanoseconds: 100_000_000) // 100ms between commands
             } catch {
                 await logError("Failed to init LED \(ledNum): \(error)", category: .bridge)
             }

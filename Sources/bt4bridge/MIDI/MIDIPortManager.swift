@@ -44,14 +44,14 @@ public actor MIDIPortManager {
     public private(set) var statistics = MIDIStatistics()
     
     public struct MIDIStatistics {
-        var messagesSent: Int = 0
-        var messagesReceived: Int = 0
-        var ccMessagesSent: Int = 0
-        var pcMessagesSent: Int = 0
-        var ccMessagesReceived: Int = 0
-        var pcMessagesReceived: Int = 0
-        var lastActivityTime: Date?
-        var connectionTime: Date?
+        public var messagesSent: Int = 0
+        public var messagesReceived: Int = 0
+        public var ccMessagesSent: Int = 0
+        public var pcMessagesSent: Int = 0
+        public var ccMessagesReceived: Int = 0
+        public var pcMessagesReceived: Int = 0
+        public var lastActivityTime: Date?
+        public var connectionTime: Date?
     }
     
     // MARK: - Initialization
