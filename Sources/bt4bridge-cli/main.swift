@@ -9,9 +9,24 @@ import BT4BridgeCore
 struct BT4BridgeApp {
     
     static func main() {
-        // Check for --test-leds flag
+        // Parse command line arguments
         let args = CommandLine.arguments
         let testMode = args.contains("--test-leds")
+        
+        // Parse output mode
+        var outputMode: OutputMode = .midi // default
+        if args.contains("--mode=keyboard") || args.contains("--keyboard") {
+            outputMode = .keyboard
+        } else if args.contains("--mode=midi") || args.contains("--midi") {
+            outputMode = .midi
+        }
+        // Note: "both" mode removed from UI but kept in enum for compatibility
+        
+        // Show help if requested
+        if args.contains("--help") || args.contains("-h") {
+            printHelp()
+            exit(0)
+        }
         
         if testMode {
             print("🧪 PG_BT4 LED Pattern Tester")
@@ -19,6 +34,9 @@ struct BT4BridgeApp {
             print("🎸 PG_BT4 Bridge v1.0.0")
         }
         print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        if !testMode {
+            print("Output Mode: \(outputMode.rawValue)")
+        }
         print(testMode ? "Starting LED pattern tests..." : "Starting bridge...")
         fflush(stdout)
         
@@ -26,7 +44,7 @@ struct BT4BridgeApp {
             if testMode {
                 await runLEDTests()
             } else {
-                await runBridge()
+                await runBridge(mode: outputMode)
             }
         }
         
@@ -34,13 +52,51 @@ struct BT4BridgeApp {
         dispatchMain()
     }
     
-    static func runBridge() async {
+    static func printHelp() {
+        print("""
+        PG_BT4 Bridge - Bluetooth to MIDI/Keyboard Bridge
+        
+        USAGE:
+            bt4bridge [OPTIONS]
+        
+        OPTIONS:
+            --mode=MODE         Output mode: midi or keyboard (default: midi)
+            --midi              Shorthand for --mode=midi
+            --keyboard          Shorthand for --mode=keyboard
+            --test-leds         Run LED pattern tests
+            --help, -h          Show this help message
+        
+        OUTPUT MODES:
+            midi       Send MIDI CC messages to virtual MIDI port
+            keyboard   Send keyboard events (arrow keys by default)
+        
+        KEYBOARD MODE:
+            Default mappings:
+              Button 1 → Space
+              Button 2 → Right Arrow
+              Button 3 → Up Arrow
+              Button 4 → Down Arrow
+            
+            Requires: Accessibility permissions
+              Grant in: System Preferences > Privacy & Security > Accessibility
+        
+        EXAMPLES:
+            bt4bridge                  # Start in MIDI mode
+            bt4bridge --keyboard       # Start in keyboard mode
+            bt4bridge --test-leds      # Test LED control
+        """)
+    }
+    
+    static func runBridge(mode: OutputMode = .midi) async {
         // Configure logger  
         await Logger.shared.setLevel(.trace)  // Enable TRACE to see all TX/RX
         await Logger.shared.setConsoleEnabled(true)
         
         // Create and start bridge
         let bridge = Bridge()
+        
+        // Set output mode
+        await bridge.setOutputMode(mode)
         
         do {
             try await bridge.start()

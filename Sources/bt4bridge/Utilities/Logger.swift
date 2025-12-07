@@ -43,6 +43,7 @@ public actor Logger {
         case midi = "MIDI"
         case bridge = "Bridge"
         case packet = "Packet"
+        case keyboard = "Keyboard"
         case system = "System"
     }
     
@@ -69,6 +70,7 @@ public actor Logger {
         .midi: os.Logger(subsystem: "com.bt4bridge", category: "MIDI"),
         .bridge: os.Logger(subsystem: "com.bt4bridge", category: "Bridge"),
         .packet: os.Logger(subsystem: "com.bt4bridge", category: "Packet"),
+        .keyboard: os.Logger(subsystem: "com.bt4bridge", category: "Keyboard"),
         .system: os.Logger(subsystem: "com.bt4bridge", category: "System")
     ]
     

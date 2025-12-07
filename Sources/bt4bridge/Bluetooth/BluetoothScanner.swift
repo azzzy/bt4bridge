@@ -72,6 +72,9 @@ public actor BluetoothScanner: NSObject {
     private var fff3Subscribed = false
     private var awaitingSubscriptions = false
     
+    /// Keep-alive task to prevent connection timeout
+    private var keepAliveTask: Task<Void, Never>?
+    
     // MARK: - Initialization
     
     public override init() {
@@ -135,6 +138,10 @@ public actor BluetoothScanner: NSObject {
         guard let peripheral = connectedPeripheral else { return }
         
         await logInfo("Disconnecting from PG_BT4", category: .bluetooth)
+        
+        // Stop keep-alive
+        stopKeepAlive()
+        
         centralManager?.cancelPeripheralConnection(peripheral)
         
         isConnected = false
@@ -146,6 +153,31 @@ public actor BluetoothScanner: NSObject {
         fff4Subscribed = false
         fff3Subscribed = false
         awaitingSubscriptions = false
+    }
+    
+    /// Start keep-alive task to prevent connection timeout
+    private func startKeepAlive() {
+        // Cancel existing task if any
+        stopKeepAlive()
+        
+        keepAliveTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+                
+                guard let self = self, await self.isConnected else { break }
+                
+                // Read RSSI as a harmless keep-alive operation
+                if let peripheral = await self.connectedPeripheral {
+                    peripheral.readRSSI()
+                }
+            }
+        }
+    }
+    
+    /// Stop keep-alive task
+    private func stopKeepAlive() {
+        keepAliveTask?.cancel()
+        keepAliveTask = nil
     }
     
     /// Send data to the PG_BT4 device
@@ -367,6 +399,9 @@ extension BluetoothScanner: CBCentralManagerDelegate {
         fff4Subscribed = false
         fff3Subscribed = false
         awaitingSubscriptions = false
+        
+        // Stop keep-alive
+        stopKeepAlive()
         
         // Notify delegate
         await delegate?.bluetoothScannerDidDisconnect(self)
@@ -604,6 +639,10 @@ extension BluetoothScanner: CBPeripheralDelegate {
             if awaitingSubscriptions && fff4Subscribed {
                 awaitingSubscriptions = false
                 await logInfo("🎯 Subscriptions ready, device will be initialized", category: .bluetooth)
+                
+                // Start keep-alive to prevent connection timeout
+                startKeepAlive()
+                
                 await delegate?.bluetoothScannerDidConnect(self)
             }
         } else {

@@ -17,6 +17,12 @@ class BridgeModel: ObservableObject {
     @Published var ledStates: [Int: Bool] = [1: false, 2: false, 3: false, 4: false]
     @Published var statistics: BridgeStatistics = BridgeStatistics()
     @Published var isActive: Bool = false
+    @Published var outputMode: OutputMode = .midi {
+        didSet {
+            // Save to UserDefaults when mode changes
+            UserDefaults.standard.set(outputMode.rawValue, forKey: "OutputMode")
+        }
+    }
     
     // MARK: - Private Properties
     
@@ -26,7 +32,11 @@ class BridgeModel: ObservableObject {
     // MARK: - Initialization
     
     init() {
-        // Initialize with default state
+        // Load saved output mode from UserDefaults
+        if let savedMode = UserDefaults.standard.string(forKey: "OutputMode"),
+           let mode = OutputMode(rawValue: savedMode) {
+            outputMode = mode
+        }
     }
     
     // MARK: - Public Methods
@@ -35,11 +45,22 @@ class BridgeModel: ObservableObject {
     func start() async throws {
         guard !isActive else { return }
         
+        // Set output mode before starting
+        await bridge.setOutputMode(outputMode)
+        
         try await bridge.start()
         isActive = true
         
         // Start update loop
         startUpdateLoop()
+    }
+    
+    /// Set output mode
+    func setOutputMode(_ mode: OutputMode) async {
+        outputMode = mode
+        if isActive {
+            await bridge.setOutputMode(mode)
+        }
     }
     
     /// Stop the bridge

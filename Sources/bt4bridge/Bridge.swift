@@ -137,6 +137,9 @@ public actor Bridge {
         statistics = BridgeStatistics()
         statistics.startTime = Date()
         
+        // Initialize output handlers
+        await initializeOutputHandlers(midiPortManager: midiPortManager)
+        
         // Set up delegates
         await bluetoothScanner.setDelegate(self)
         await midiPortManager.setDelegate(self)
@@ -241,6 +244,23 @@ public actor Bridge {
         statistics.messagesFromPG_BT4 += 1
         statistics.totalMessagesForwarded += 1
         
+        // Check if this is a button event that should be dispatched to output handlers
+        if case .controlChange(_, let controller, let value) = message {
+            if controller >= 80 && controller <= 83 {
+                // Button event (CC 80-83 = Buttons 1-4)
+                let button = Int(controller - 79)
+                let pressed = value > 0
+                
+                // Dispatch to output handlers
+                await dispatchButtonEvent(button: button, pressed: pressed)
+                
+                // Update discovered CCs
+                statistics.discoveredCCs.insert(controller)
+                return // Button events handled by output handlers, don't send via standard MIDI
+            }
+        }
+        
+        // For non-button messages, use standard MIDI flow (expression pedals, etc.)
         // Check if message should be coalesced
         if let coalescedMessage = await messageCoalescer.add(message) {
             // Send immediately (not coalesced)
@@ -279,22 +299,26 @@ public actor Bridge {
         statistics.messagesFromDAW += 1
         statistics.totalMessagesForwarded += 1
         
-        // Check if message is a CC that maps to an LED
-        if case .controlChange(_, let controller, let value) = message {
-            if let ledCommand = await ledController.handleMIDICC(controller: controller, value: value) {
-                // This is an LED control message - send directly to device
-                let ledNum = controller - 15
-                let state = value >= 64 ? "ON" : "OFF"
-                let hexString = ledCommand.map { String(format: "%02X", $0) }.joined(separator: " ")
-                await logInfo("💡 LED \(ledNum) \(state) (CC\(controller)=\(value)) -> \(hexString)", category: .bridge)
-                
-                do {
-                    try await bluetoothScanner.sendMIDIData(ledCommand)
-                    await logInfo("   ✅ LED command sent", category: .bridge)
-                } catch {
-                    await logError("   ❌ Failed to send LED command: \(error)", category: .bridge)
+        // Only handle LED commands in MIDI mode
+        let currentMode = await getOutputMode()
+        if currentMode == .midi {
+            // Check if message is a CC that maps to an LED
+            if case .controlChange(_, let controller, let value) = message {
+                if let ledCommand = await ledController.handleMIDICC(controller: controller, value: value) {
+                    // This is an LED control message - send directly to device
+                    let ledNum = controller - 15
+                    let state = value >= 64 ? "ON" : "OFF"
+                    let hexString = ledCommand.map { String(format: "%02X", $0) }.joined(separator: " ")
+                    await logInfo("💡 LED \(ledNum) \(state) (CC\(controller)=\(value)) -> \(hexString)", category: .bridge)
+                    
+                    do {
+                        try await bluetoothScanner.sendMIDIData(ledCommand)
+                        await logInfo("   ✅ LED command sent", category: .bridge)
+                    } catch {
+                        await logError("   ❌ Failed to send LED command: \(error)", category: .bridge)
+                    }
+                    return // Don't forward LED CC to device as regular MIDI
                 }
-                return // Don't forward LED CC to device as regular MIDI
             }
         }
         
