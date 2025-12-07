@@ -1,10 +1,10 @@
 # bt4bridge
 
-A macOS bridge application that connects the PG_BT4 Bluetooth foot controller to CoreMIDI, enabling seamless integration with your DAW and music production workflow.
+A macOS bridge application that connects the Postitive Grid BT4 Bluetooth foot controller to CoreMIDI, enabling seamless integration with your DAW and music production workflow. This app is mostly AI generated, but functional and stable for daily use.
 
 ## Overview
 
-bt4bridge acts as a transparent bridge between the PG_BT4 Bluetooth foot controller and macOS's CoreMIDI system. It automatically discovers the device, connects, and routes all button presses as MIDI Control Change messages to a virtual MIDI port that can be accessed by any CoreMIDI-compatible application.
+bt4bridge acts as a transparent bridge between the Positive Grid BT4 Bluetooth foot controller and macOS's CoreMIDI system. It automatically discovers the device, connects, and routes all button presses as MIDI Control Change messages to a virtual MIDI port that can be accessed by any CoreMIDI-compatible application.
 
 Available in two versions:
 - **Menu Bar App** (recommended): Native macOS app with menu bar interface
@@ -13,7 +13,7 @@ Available in two versions:
 ## Features
 
 ### Core Features (Both Versions)
-- **Automatic Discovery**: Scans for and connects to the PG_BT4 device automatically
+- **Automatic Discovery**: Scans for and connects to the Positive Grid BT4 device automatically
 - **Full Button Support**: All 4 buttons mapped to MIDI CC 80-83 on channel 0
 - **LED Control**: Control all 4 LEDs via MIDI CC 16-19 from your DAW
 - **Transparent Bridging**: Routes all MIDI messages between Bluetooth and CoreMIDI
@@ -26,7 +26,6 @@ Available in two versions:
 - **Visual Status Indicators**: See connection status at a glance
 - **LED State Monitoring**: View current LED states without looking at the hardware
 - **Quick Actions**: Reconnect to device with one click
-- **Launch at Login**: Optionally start automatically when you log in (coming soon)
 - **Clean & Lightweight**: Minimal resource usage when idle
 
 ## Requirements
@@ -49,7 +48,7 @@ Available in two versions:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/bt4bridge.git
+git clone https://github.com/azzzy/bt4bridge.git
 cd bt4bridge
 
 # Build the menu bar app as an .app bundle (recommended)
