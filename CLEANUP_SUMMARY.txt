@@ -1,0 +1,79 @@
+# Cleanup Summary
+
+## Files Removed
+
+### Debug/Test Scripts (15 files)
+- capture_bluetooth.sh
+- decode_logs.sh
+- quick_capture.sh
+- test_bluetooth.swift
+- test_bridge.sh
+- test_led_commands.sh
+- test_led_formats.swift
+- test_led_patterns.sh
+- test_led_via_midi.sh
+- test_single_led.swift
+
+### Old Documentation (27 markdown files)
+- ALTERNATIVE_APPROACH.md
+- CAPTURE_PROTOCOL.md
+- ENABLE_BLUETOOTH_LOGGING.md
+- IOS_CAPTURE_QUICKSTART.md
+- IOS_PACKET_CAPTURE.md
+- LED_CAPTURE_STEPS.md
+- LED_NEXT_STEPS.md
+- LED_PATTERN_TEST_GUIDE.md
+- LED_TESTER_README.md
+- MANUAL_LED_TEST.md
+- PACKETLOGGER_STEPS.md
+- PROTOCOL_CAPTURE_GUIDE.md
+- QUICK_TEST.md
+- SIMULATOR_GUIDE.md
+- SIMULATOR_README.md
+- SIMULATOR_TEST_MAC.md
+- SIMULATOR_TROUBLESHOOTING.md
+- SNIFF_QUICKSTART.md
+- TEST_BRIDGE_MODE.md
+- TEST_INSTRUCTIONS.md
+- capture_strategy.md
+- led_investigation.md
+- led_test_matrix.md
+- nRF_CONNECT_GUIDE.md
+- nrf_test_matrix.md
+
+### Log Files (4 files)
+- console app logs.txt
+- mystery_packet_tests.txt
+- packet logger.log
+- pg4_simulator_log.txt
+- test_scanner (binary)
+
+## Files Kept
+
+### Documentation
+- README.md - Main project documentation
+- AGENTS.md - Agent guidelines
+- PROJECT_STATUS.md - Project status
+
+### Useful Tools
+- send_cc.swift - Send MIDI CC to bridge (useful for testing)
+- list_midi_ports.swift - List MIDI ports (debugging)
+- monitor_midi.swift - Monitor MIDI messages (debugging)
+- quick_test_leds.sh - Automated LED test
+
+### Source Code
+- Sources/ - All source code
+- Package.swift - Swift package manifest
+- .gitignore - Git ignore rules
+
+## Code Changes
+
+### Reduced Logging
+- Bridge.swift: Removed verbose RAW RX logs, simplified button event logs
+- MIDIPortManager.swift: Removed UMP hex dumps, simplified send logs
+- BluetoothScanner.swift: Changed verbose TX logs to trace level
+
+### Result
+- Cleaner console output
+- Only essential information logged at INFO level
+- Debug/trace logs available if needed for troubleshooting

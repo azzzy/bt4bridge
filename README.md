@@ -1,6 +1,6 @@
 # bt4bridge
 
-A macOS bridge application that connects the Postitive Grid BT4 Bluetooth foot controller to CoreMIDI, enabling seamless integration with your DAW and music production workflow. This app is mostly AI generated, but functional and stable for daily use.
+A МacOS bridge application that connects the Postitive Grid BT4 Bluetooth foot controller to CoreMIDI, enabling seamless integration with your DAW and music production workflow. This app is mostly AI generated, but functional and stable for daily use.
 
 ## Overview
 
