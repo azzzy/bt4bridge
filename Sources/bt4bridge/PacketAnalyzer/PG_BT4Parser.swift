@@ -7,12 +7,22 @@ public struct PG_BT4Parser {
     /// - Parameter data: Raw data from PG_BT4
     /// - Returns: MIDI message if successful
     public static func parse(_ data: Data) -> MIDIMessage? {
-        // PG_BT4 protocol: [B1] [switch] [state]
-        // B1 = header/prefix
+        guard data.count >= 3 else { return nil }
+        
+        // Handle different packet types
+        // B1 = Button press/release
+        // A1 = LED state confirmation (ignore for MIDI conversion)
+        // A2 = LED command (we send this, shouldn't receive it)
+        
+        if data[0] == 0xA1 {
+            // LED state confirmation from device - don't convert to MIDI
+            // Just ignore these
+            return nil
+        }
+        
+        // PG_BT4 button protocol: [B1] [switch] [state]
         // Switch: 0x10-0x13 = Switch 1-4
         // State: 0x00 = Pressed, 0x01 = Released (REVERSED LOGIC!)
-        
-        guard data.count >= 3 else { return nil }
         guard data[0] == 0xB1 else { return nil }  // Check for B1 header
         
         let switchNumber = data[1]
@@ -95,6 +105,37 @@ public struct PG_BT4Parser {
     public static func isButtonPress(_ data: Data) -> Bool {
         guard data.count >= 3 else { return false }
         return data[2] == 0x00  // Reversed logic: 0x00 = pressed
+    }
+    
+    /// Parse LED state confirmation packet
+    /// - Parameter data: Raw data from PG_BT4
+    /// - Returns: (ledNumber, isOn) tuple if this is an A1 LED confirmation packet
+    public static func parseLEDConfirmation(_ data: Data) -> (led: Int, isOn: Bool)? {
+        // A1 packets are LED state confirmations
+        // Format: [A1] [LED] [STATE]
+        // LED: 0x10-0x13
+        // STATE: 0x00 = ON, 0x01 = OFF (REVERSED LOGIC - same as A2 commands)
+        
+        guard data.count >= 3 else { return nil }
+        guard data[0] == 0xA1 else { return nil }
+        
+        let ledByte = data[1]
+        let stateByte = data[2]
+        
+        // Map LED byte to LED number (1-4)
+        let ledNumber: Int
+        switch ledByte {
+        case 0x10: ledNumber = 1
+        case 0x11: ledNumber = 2
+        case 0x12: ledNumber = 3
+        case 0x13: ledNumber = 4
+        default: return nil
+        }
+        
+        // Reversed logic: 0x00 = ON, 0x01 = OFF
+        let isOn = (stateByte == 0x00)
+        
+        return (led: ledNumber, isOn: isOn)
     }
 }
 

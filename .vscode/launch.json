@@ -59,6 +59,26 @@
       "target": "ledtester",
       "configuration": "release",
       "preLaunchTask": "swift: Build Release ledtester"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:bt4bridge}",
+      "name": "Debug bt4bridge-app",
+      "target": "bt4bridge-app",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug bt4bridge-app"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:bt4bridge}",
+      "name": "Release bt4bridge-app",
+      "target": "bt4bridge-app",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release bt4bridge-app"
     }
   ]
 }
